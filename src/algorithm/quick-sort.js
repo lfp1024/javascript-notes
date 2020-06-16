@@ -1,13 +1,13 @@
-function sort(arr, start, end) {
+function quickSort(arr, start, end) {
     if (start < end) {
         //基准点
         let pivot = arr[start]
         //一次排序后基准点的位置，一轮排序后左边都比基准点小，右边都比基准点大
         let pivotPosition = portion(arr, start, end, pivot)
         //左表递归
-        sort(arr, start, pivotPosition - 1)
+        quickSort(arr, start, pivotPosition - 1)
         //右表递归
-        sort(arr, pivotPosition + 1, end)
+        quickSort(arr, pivotPosition + 1, end)
     }
 }
 
@@ -35,5 +35,5 @@ function portion(targetArr, start, end, pivot) {
 }
 
 let myarr = [49, 38, 65, 97, 76, 13, 27];
-sort(myarr, 0, myarr.length - 1);
+quickSort(myarr, 0, myarr.length - 1);
 console.log(myarr.toString())
