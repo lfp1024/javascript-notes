@@ -32,6 +32,7 @@
 
     <script>
         // 事件委托
+        //基于事件委托实现多元素的事件绑定，要比传统循环一个个的给元素进行事件绑定，性能提高40%~60%
         document.body.onclick = function (ev) {
             // 事件源
             var target = ev.target
