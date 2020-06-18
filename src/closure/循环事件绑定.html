@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <button value="red">红</button>
+    <button value="green">绿</button>
+    <button value="blue">蓝</button>
+
+    <script>
+        // 事件委托
+        document.body.onclick = function(ev){
+            // 事件源
+            var target = ev.target
+            if(target.tagName === 'BUTTON'){
+                // this --> body
+                this.style.background = target.value
+            }
+        }
+
+
+
+
+        // 添加自定义属性
+        // var body = document.querySelector('body'),
+        //     // 类数组对象
+        //     buttons = document.querySelectorAll('button'),
+        //     arr = ['red', 'green', 'blue']
+        // for (var i = 0; i < buttons.length; i++) {
+        //     var item = buttons[i]
+        //     item.myIndex = i
+        //     item.onclick = function () {
+        //         body.style.background = arr[this.myIndex]
+        //     }
+        // }
+
+
+    </script>
+
+
+
+
+</body>
+
+</html>
