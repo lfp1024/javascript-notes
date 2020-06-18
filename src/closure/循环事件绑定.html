@@ -32,10 +32,10 @@
 
     <script>
         // 事件委托
-        document.body.onclick = function(ev){
+        document.body.onclick = function (ev) {
             // 事件源
             var target = ev.target
-            if(target.tagName === 'BUTTON'){
+            if (target.tagName === 'BUTTON') {
                 // this --> body
                 this.style.background = target.value
             }
@@ -55,6 +55,21 @@
         //     item.onclick = function () {
         //         body.style.background = arr[this.myIndex]
         //     }
+        // }
+
+        // 利用闭包机制
+        // for (var i = 0; i < buttons.length; i++) {
+        //     buttons[i].onclick = (function (i) {
+        //         return function anonymous() {
+        //             body.style.background = arr[i];
+        //         };
+        //     })(i);
+        // }
+
+        // for (let i = 0; i < buttons.length; i++) {
+        //     buttons[i].onclick = function () {
+        //         body.style.background = arr[i];
+        //     };
         // }
 
 
