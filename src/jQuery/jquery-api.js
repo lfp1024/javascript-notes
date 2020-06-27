@@ -107,12 +107,21 @@ console.log("isPlianObject = ", isPlainObject(Object.create(null))) // true
 
 // 检测是否为空对象
 function isEmptyObject(obj) {
-    for (var name in obj) {
-        return false
+    // 保证必须是个对象，如果不是对象不会进入for-in循环（将返回true）
+    if (obj == null || /^\[object ([a-z]+)\]$/i.exec(({}).toString.call(obj))[1].toLowerCase() !== "object") {
+        return false;
     }
-    return true
+    for (var key in obj) {
+        // 添加对私有属性的判断
+        // if (!obj.hasOwnProperty(key)) break
+        if (!Object.prototype.hasOwnProperty.call(obj, key)) break;
+        return false;
+    }
+    return true;
 }
 console.log("isEmptyObject = ", isEmptyObject({})) // true
+console.log("isEmptyObject = ", isEmptyObject(1)) // false
+console.log("isEmptyObject = ", isEmptyObject(undefined)) // false
 
 // 检测是否为一个Number类型
 function isNumeric(obj) {
