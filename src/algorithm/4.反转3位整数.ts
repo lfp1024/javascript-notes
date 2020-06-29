@@ -26,12 +26,6 @@
     //     return intReversed
     // }
 
-
-    function reverseInterger(interger: number) {
-        // ts 中不支持 展开运算符跟字符串使用，只能跟数组使用
-        return +[...interger.toString().split("")].reverse().join("")
-    }
-
     // js 
     // function reverseInterger(interger) {
     //     return +[...interger.toString()].reverse().join("")
@@ -54,6 +48,13 @@
     //     }
     //     return Number(newIntStr)
     // }
+
+    function reverseInterger(interger: number) {
+        // ts 中不支持 展开运算符跟字符串使用，只能跟数组使用
+        // let res = [...interger.toString().split("")].reverse().join("")
+        let res = [].reverse.call(interger.toString().split("")).join("")
+        return Number(res)
+    }
 
     let n = 9230
     let res = reverseInterger(n)
