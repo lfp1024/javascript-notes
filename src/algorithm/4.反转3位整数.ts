@@ -27,9 +27,15 @@
     // }
 
     // js 
+    // ts 中不支持 展开运算符跟字符串使用，只能跟数组使用
     // function reverseInterger(interger) {
     //     return +[...interger.toString()].reverse().join("")
     // }
+
+    function reverseInterger(interger: number) {
+        let res = interger.toString().split("").reverse().join("")
+        return Number(res)
+    }
 
 
     // 方式2：求余数，逐个颠倒
@@ -49,12 +55,6 @@
     //     return Number(newIntStr)
     // }
 
-    function reverseInterger(interger: number) {
-        // ts 中不支持 展开运算符跟字符串使用，只能跟数组使用
-        // let res = [...interger.toString().split("")].reverse().join("")
-        let res = [].reverse.call(interger.toString().split("")).join("")
-        return Number(res)
-    }
 
     let n = 9230
     let res = reverseInterger(n)
