@@ -85,6 +85,7 @@ const resolvePromise = (promise2, x, resolve, reject) => {
                     // 为了解决返回promise成功又返回promise的现象，这里需要递归解析
                     // 第一个参数仍然是最外层then返回的promise，是为了保证不发生循环引用。等y(promise)返回后，调用promise2的resolve或reject
                     resolvePromise(promise2, y, resolve, reject)
+                    console.log("aaaaaaaaaaaaaaaaaaaaa = ", y)
                 }, e => {
                     // 防止走成功后又走失败
                     if (called) return
@@ -97,6 +98,7 @@ const resolvePromise = (promise2, x, resolve, reject) => {
 
             } else {
                 // x 不是 promise（是个普通对象或普通函数）
+                console.log("bbbbbbbbbbbbbbbbbbbbbbbbbbb", x)
                 resolve(x)  // {then:123}
             }
 
@@ -114,11 +116,12 @@ const resolvePromise = (promise2, x, resolve, reject) => {
     } else {
         // 如果x不是对象或函数，直接返回成功状态的promise
         // then 返回 promise 最终结束的地方
+        console.log("ccccccccccccccccccccccccccc", x)
         resolve(x)
     }
 }
 
-console.log('******my promise******')
+console.log('====== my promise ======')
 class MyPromise {
 
     constructor(executor) {
@@ -134,31 +137,56 @@ class MyPromise {
         // 【不是静态方法也不是实例方法】，就是一个在构造函数中自定义的方法
         // 是一个闭包函数，在里面定义，在外面执行 
         const resolve = (value) => {
+            console.log("@DEV-- call resolve")
             // 调用 resolve 方法的时候没有指明谁调用的，因此这里的THIS需要明确指向当前实例，使用箭头函数
             // this 指代当前实例(上级上下文中的THIS：构造函数中的THIS指代当前实例对象)
             // 只有 pending 状态可以修改状态和值
             if (this.status === PENDING) {
-                this.status = RESOLVED
-                this.value = value
-                this.onResolvedCallbacks.forEach(cb => cb())
+                // 先校验值，如果不是promise才继续执行（改变状态和值）
+                // 因为如果value是promise，则会决定当前promise的状态
+                if ((typeof value === 'object' && value !== null) || typeof value === 'function') {
+                    try {
+                        let then = value.then
+                        if (typeof then === 'function') {
+                            console.log('@DEV-- value is a promise')
+                            // value 是一个promise
+                            resolvePromise(this, value, resolve, reject) // 这里涉及到递归,要有一个出口(判断逻辑不好抽离函数本身)
+                        } else {
+                            console.log('@DEV-- value.then is not a function:', value)
+                            this.value = value
+                            this.status = RESOLVED
+                            this.onResolvedCallbacks.forEach(cb => cb())
+                        }
+                    } catch (error) {
+                        console.log("@DEV-- call then", error)
+                        return reject(error)
+                    }
+                } else {
+                    // 如果value不是promise
+                    console.log('@DEV-- value is not a promise:', value)
+                    this.value = value
+                    this.status = RESOLVED
+                    this.onResolvedCallbacks.forEach(cb => cb())
+                }
             }
         }
         const reject = (reason) => {
+            console.log("@DEV-- call reject")
             if (this.status === PENDING) {
-                this.status = REJECTED
                 this.value = reason
+                this.status = REJECTED
                 this.onRejectedCallbacks.forEach(cb => cb())
             }
         }
 
         // 构造函数中传入的函数，立即执行
-        // 1. 同步代码，可以捕获到异常。异步代码无法捕获（当异步任务执行的时候，捕获异常的函数已经出栈了）
-        // 2. 这里用 try-catch 捕获异常，如果new的时候没有传递参数，则不会报错
+        // 1. 同步代码，可以捕获到异常
+        // 2. 异步代码无法捕获（当异步任务执行的时候，捕获异常的函数已经出栈了）
         try {
             executor(resolve, reject)
         } catch (error) {
             // 捕获 executor函数中的同步代码报错
-            // console.log("executor 捕获到异常", error)
+            console.log("@DEV-- executor catch", error)
             reject(error)
         }
     }
