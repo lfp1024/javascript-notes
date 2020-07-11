@@ -1,0 +1,8 @@
+{"scripts": {
+  "test1": "promises-aplus-tests 1.my-promise2.js",
+  "test2": "promises-aplus-tests 2.my-promise.js"
+},
+  "devDependencies": {
+    "promises-aplus-tests": "^2.1.2"
+  }
+}
