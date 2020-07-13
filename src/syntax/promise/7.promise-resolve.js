@@ -1,19 +1,22 @@
 //==================resolve 同步执行===============
 // resolve()的参数只能是个值类型,如果是表达式(函数或new操作符)会先将表达式在executor函数体中执行,然后再把返回结果当做参数执行resolve
-let Promise = require('./2.my-promise')
+// let Promise = require('./2.my-promise')
 
-let p1 = new Promise(function (resolve, reject) {
-    // 直接调用 resolve 是同步执行,只是then中的回调函数是异步的
-    resolve(new Promise(res => res('resolveddd')));
-    // resolve(11)
-});
-console.log("p1 = ", p1)
+// let p1 = new Promise((resolve, reject) => {
+//     // 直接调用 resolve 是同步执行,只是then中的回调函数是异步的
+//     resolve(new Promise(res => res('resolveddd')));
+//     // resolve(11)
+// }).then(res => {
+//     console.log("res = ", res)
+// });
+// console.log("p1 = ", p1)
+
 // setTimeout(() => {
 //     console.log("p1 = ", p1)
 // }, 1000);
 
 //================================Promise.resolve()========================
-/* 
+/*
 let Promise = require('./2.my-promise')
 
 var p1 = new Promise(function (resolve, reject) {
@@ -186,7 +189,7 @@ setTimeout(() => {
 //表明 resolve 中也有对promise死循环的判断
 
 // 报错=> UnhandledPromiseRejectionWarning: TypeError: Chaining cycle detected for promise #<Promise>
-/* 
+/*
 let p1 = new Promise(function (resolve, reject) {
     setTimeout(() => {
         resolve(p1);
@@ -204,7 +207,6 @@ setTimeout(() => {
 // }
 
 //=================resolve 异常===================
-
 /* let Promise = require('./2.my-promise')
 let p1 = new Promise(function (resolve, reject) {
     console.log("1-1")
@@ -220,3 +222,4 @@ let p1 = new Promise(function (resolve, reject) {
 setTimeout(() => {
     console.log("p1 = ", p1)
 }, 1000); */
+
