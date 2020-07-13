@@ -45,6 +45,10 @@ promise 实现规范 promisea+ 规范 https://promisesaplus.com/
 1. executor 立即执行
 */
 
+const u = require("./utils")
+
+const log = u.debugGenerator(__filename)
+
 // 三个状态（用常量表示）
 const RESOLVED = 'RESOLVED'
 const REJECTED = 'REJECTED'
@@ -67,11 +71,13 @@ const resolvePromise = (promise2, x, resolve, reject) => {
         // 如果x是对象或函数
         try {
             // promise都有一个then方法，取x的then属性，看是不是函数来判断x是不是promise
+            // 没有then 属性,则值为undefined
             let then = x.then
             if (typeof then === 'function') {
                 // 至此，认为x是promise
                 // 根据内层promise(x)的状态和值 决定外层promise(then方法返回的)的状态和值
                 // 用 call 方法，保证then方法中的THIS是需要获取结果的promise实例。如果不call则是window或global
+                // 调用then方法，就会执行then的逻辑，then会监听回调的返回值，以此决定自己返回promise的状态（在日志中会发现then的日志）
                 then.call(x, y => { // 不能写成 x.then，因此这样会再次取值，有可能报错  
                     //【只有这里进入了别人的promise中的then方法，执行自己传入的回调】，无法控制别人的代码，只能控制自己的promise的状态（即控制传入的回调的执行）
                     // 防止走成功后又走失败（自己代码中在定义resolve和reject的时候有判断是否为 PENDING 状态）
@@ -84,8 +90,10 @@ const resolvePromise = (promise2, x, resolve, reject) => {
 
                     // 为了解决返回promise成功又返回promise的现象，这里需要递归解析
                     // 第一个参数仍然是最外层then返回的promise，是为了保证不发生循环引用。等y(promise)返回后，调用promise2的resolve或reject
+                    log.debug("before resolvePromise recursion, y =", y)
+                    // 当最终y不是promise,在【终结者1/2】结束后，回到这里，嵌套的resolvePromise依次结束
                     resolvePromise(promise2, y, resolve, reject)
-                    console.log("aaaaaaaaaaaaaaaaaaaaa = ", y)
+                    log.debug("end resolvePromise recursion, y =", y)
                 }, e => {
                     // 防止走成功后又走失败
                     if (called) return
@@ -98,7 +106,8 @@ const resolvePromise = (promise2, x, resolve, reject) => {
 
             } else {
                 // x 不是 promise（是个普通对象或普通函数）
-                console.log("bbbbbbbbbbbbbbbbbbbbbbbbbbb", x)
+                // then 返回 promise 最终结束的地方1【终结者1】
+                log.debug("the property 'then' of 'x' is not a function, x =", x)
                 resolve(x)  // {then:123}
             }
 
@@ -110,19 +119,18 @@ const resolvePromise = (promise2, x, resolve, reject) => {
             // 防止走成功后又走失败 【测试结果表明需要加！！！】
             if (called) return
             called = true
-
             reject(error) // 取值出错
         }
     } else {
         // 如果x不是对象或函数，直接返回成功状态的promise
-        // then 返回 promise 最终结束的地方
-        console.log("ccccccccccccccccccccccccccc", x)
+        // then 返回 promise 最终结束的地方2【终结者2】
+        log.debug("x is not a promise, x =", x)
         resolve(x)
     }
 }
 
-console.log('====== my promise ======')
-class MyPromise {
+log.debug('====== my promise ======')
+class Promise {
 
     constructor(executor) {
         // 这种写法相当于类中具有属性 state。这里给每个实例赋值
@@ -137,41 +145,67 @@ class MyPromise {
         // 【不是静态方法也不是实例方法】，就是一个在构造函数中自定义的方法
         // 是一个闭包函数，在里面定义，在外面执行 
         const resolve = (value) => {
-            console.log("@DEV-- call resolve")
+
+            log.debug("call resolve", this.status, value)
+
+            // 这里不用兼容其他版本的promise，只是自己的功能（非规范中的）
+            if (value instanceof Promise) {
+                // 递归解析promise，直到value非promise
+                // 是异步执行的（涉及到then）
+                return value.then(resolve, reject)
+            }
+
+            if (this.status === PENDING) {
+                this.value = value
+                this.status = RESOLVED
+                this.onResolvedCallbacks.forEach(cb => cb())
+            }
+
+
+            // 兼容写法
             // 调用 resolve 方法的时候没有指明谁调用的，因此这里的THIS需要明确指向当前实例，使用箭头函数
             // this 指代当前实例(上级上下文中的THIS：构造函数中的THIS指代当前实例对象)
             // 只有 pending 状态可以修改状态和值
-            if (this.status === PENDING) {
-                // 先校验值，如果不是promise才继续执行（改变状态和值）
-                // 因为如果value是promise，则会决定当前promise的状态
-                if ((typeof value === 'object' && value !== null) || typeof value === 'function') {
-                    try {
-                        let then = value.then
-                        if (typeof then === 'function') {
-                            console.log('@DEV-- value is a promise')
-                            // value 是一个promise
-                            resolvePromise(this, value, resolve, reject) // 这里涉及到递归,要有一个出口(判断逻辑不好抽离函数本身)
-                        } else {
-                            console.log('@DEV-- value.then is not a function:', value)
-                            this.value = value
-                            this.status = RESOLVED
-                            this.onResolvedCallbacks.forEach(cb => cb())
-                        }
-                    } catch (error) {
-                        console.log("@DEV-- call then", error)
-                        return reject(error)
-                    }
-                } else {
-                    // 如果value不是promise
-                    console.log('@DEV-- value is not a promise:', value)
-                    this.value = value
-                    this.status = RESOLVED
-                    this.onResolvedCallbacks.forEach(cb => cb())
-                }
-            }
+            // if (this.status === PENDING) {
+            //     // 先校验值，如果不是promise才继续执行（改变状态和值）
+            //     // 因为如果value是promise，则会决定当前promise的状态
+            //     if ((typeof value === 'object' && value !== null) || typeof value === 'function') {
+            //         try {
+            //             let then = value.then
+            //             if (typeof then === 'function') {
+            //                 log.debug('value is a promise')
+            //                 // value 是一个promise
+            //                 resolvePromise(this, value, resolve, reject) // 这里涉及到递归,要有一个出口(判断逻辑不好抽离函数本身)
+            //                 // 如果 value 是异步的(这里判断就是异步的),resolvePromise是异步执行的.
+            //                 log.debug("async resolve promise")
+            //             } else {
+            //                 log.debug("the property 'then' of 'value' is not a function, value =", value)
+            //                 this.value = value
+            //                 // 因为resolvePromise异步执行，所以对状态的改变只能放到出口
+            //                 this.status = RESOLVED
+            //                 this.onResolvedCallbacks.forEach(cb => cb())
+            //             }
+            //         } catch (error) {
+            //             log.debug("call then", error)
+            //             return reject(error)
+            //         }
+            //     } else {
+            //         // 如果value不是promise
+            //         log.debug('value is not a promise, value =', value)
+            //         this.value = value
+            //         // 因为resolvePromise异步执行，所以对状态的改变只能放到出口
+            //         this.status = RESOLVED
+            //         this.onResolvedCallbacks.forEach(cb => cb())
+            //     }
+            // }
+
+            // 打印对应resolve所属的promise
+            log.debug("----", this)
         }
+
         const reject = (reason) => {
-            console.log("@DEV-- call reject")
+            // reject 递归解析 reason，原样返回
+            log.debug("call reject", this.status, reason)
             if (this.status === PENDING) {
                 this.value = reason
                 this.status = REJECTED
@@ -186,7 +220,7 @@ class MyPromise {
             executor(resolve, reject)
         } catch (error) {
             // 捕获 executor函数中的同步代码报错
-            console.log("@DEV-- executor catch", error)
+            log.debug("executor catched", error)
             reject(error)
         }
     }
@@ -194,7 +228,6 @@ class MyPromise {
     // Promise 实例具有的方法
     then(onResolved, onRejected) {
         // 这里的THIS是调用then的promise实例
-
         // 判断是否传递参数以及传递的是不是函数
         // onResolved = typeof onResolved === 'function' ? onResolved : value => { return value }
         onResolved = typeof onResolved === 'function' ? onResolved : v => v
@@ -203,7 +236,7 @@ class MyPromise {
 
 
         // 懒递归，每次调用就new一个新的promise
-        const promise2 = new MyPromise((resolve, reject) => {
+        const promise2 = new Promise((resolve, reject) => {
             // 箭头函数THIS继承上级上下文中的THIS
 
             // 如果executor 里面是同步代码，则直接执行 then 的回调函数
@@ -218,6 +251,7 @@ class MyPromise {
                         let x = onResolved(this.value)
                         // 解析函数的返回值，决定then返回的promise的状态
                         // promise2.resolve = resolve 规范中的写法
+                        log.debug("RESOLVED:then return promise, x=", x)
                         resolvePromise(promise2, x, resolve, reject)
                     } catch (error) {
                         reject(error)
@@ -228,6 +262,7 @@ class MyPromise {
                 setTimeout(() => {
                     try {
                         let x = onRejected(this.value)
+                        log.debug("REJECTED:then return promise")
                         resolvePromise(promise2, x, resolve, reject)
                     } catch (error) {
                         reject(error)
@@ -237,6 +272,7 @@ class MyPromise {
             // 如果 executor 里面是异步代码，需要异步执行，用发布订阅模式解决 then 的异步执行
             // 需要用到发布订阅模式，如果当前状态是 pending，则将传入的回调函数保存起来，稍后手动调用 resolve 或 reject 改变状态的时候再执行
             // 同一个promise可以多次调用 then 方法，因此会有多个回调函数，需要用数组保存
+            // 挂到【调用】then的promise中，
             if (this.status === PENDING) {
                 // 这样放，逻辑就被写死了
                 // this.onResolvedCallbacks.push(onResolved)
@@ -248,9 +284,9 @@ class MyPromise {
                     // 不是立即执行，当执行外面的匿名函数的时候，才会执行
                     // do other things...
 
-                    // 这里本身虽然是异步的，但是不用定时器会报错
+                    // 这里本身虽然是异步的，但是不用定时器会报错：2.3.3: Otherwise...
                     // 根据上面对状态的判断，如果是 RESULVED 或 REJECTED，then的回调是异步执行的。这里虽然判断是 PENDING 放入了数组中
-                    // 可是一旦promise状态改变，就会立即执行。不符合 promise状态改变then的回调是异步执行 的规范。
+                    // 可是一旦promise状态改变，就会立即执行。不符合 promise状态改变then的回调是异步执行 的规范。【Promises/A+ 3.1】
                     // try {
                     //     let x = onResolved(this.value)
                     //     resolvePromise(promise2, x, resolve, reject)
@@ -262,6 +298,7 @@ class MyPromise {
                     setTimeout(() => {
                         try {
                             let x = onResolved(this.value)
+                            log.debug("PENDING->RESOLVED:then return promise")
                             resolvePromise(promise2, x, resolve, reject)
                         } catch (error) {
                             reject(error)
@@ -273,6 +310,7 @@ class MyPromise {
                     setTimeout(() => {
                         try {
                             let x = onRejected(this.value)
+                            log.debug("PENDING->REJECTED:then return promise")
                             resolvePromise(promise2, x, resolve, reject)
                         } catch (error) {
                             reject(error)
@@ -284,13 +322,135 @@ class MyPromise {
         })
         return promise2
     }
+
+    //=============================================以下非Promise/A+ 规范===============================================
+    // 返回一个新的promise，根据 onRejected 的返回结果决定返回promise的状态
+    catch(onRejected) {
+        // THIS指代调用catch的promise实例
+        return this.then(null, onRejected)
+    }
+
+    // node>10 
+    // 表示前面的promise无论成功还是失败都会执行finally方法（无论如何必须要处理一个逻辑的时候使用，如果返回成功promise不影响整个then链的结果）
+    // 如果finally返回一个promise，会等待这个promise返回
+    //  1. 如果是成功的promise，忽略自己的返回结果，将前面promise的返回值传递下去（前面如果是成功，后面用then获取值，前面如果是失败，后面用catch捕获）
+    //  2. 如果是失败的promise，将自己的失败原因，取代前面promise的返回值传递下去（后面用catch捕获）
+    // callback没有参数
+    finally(callback) {
+        return this.then(result => {
+            // 这里用 Promise.resolve 包一层，确保返回一个promise
+            // 将前面promise的返回值传递下去（遵循 then 的链式调用原理）
+            return Promise.resolve(callback()).then(() => result)
+        }, err => {
+            // 如果前面的promise报错，则进入这里，将它的错误传递下去
+            // 如果是自己（callback 执行）报错，不会进入then，直接传递下去（代替前面promise的错误）
+            return Promise.resolve(callback()).then(() => { throw err })
+        })
+    }
+
+    // 速创建一个成功的promise：Promise.resolve()
+    // 参数:
+    //  1. 是一个promise实例，则直接原样返回
+    //  2. 是一个thenable对象，则异步调用其then方法,决定resolve返回promise的状态
+    //  3. 不是thenabled对象或promise实现，则返回一个新的成功的promise，值为该参数
+    //  4. 不传参数，返回一个新的成功的promise，值为undefined
+    static resolve(result) {
+        // 不处理兼容
+        if (result instanceof Promise) {
+            return result
+        }
+        return new Promise((resolve, reject) => {
+            if (!(result == undefined) && typeof result.then === 'function') {
+                // 我们实现的then的回调是异步的，而thenable对象中then的回调是同步的，因此这里需要加异步
+                setTimeout(() => {
+                    result.then(resolve, reject)
+                }, 0);
+            } else {
+                return resolve(result)
+            }
+        })
+    }
+
+    // 快速创建一个失败的promise:Promise.reject()
+    static reject(reason) {
+        return new Promise((resolve, reject) => {
+            reject(reason)
+        })
+    }
+
+    // 参数：实现iterator接口的可迭代对象（数组、字符串）
+    //  1. 如果参数不存在或者不可迭代，返回一个失败的promise，值为类型错误
+    //  2. 如果可迭代对象成员为空，返回一个成功的promise，值为空数组
+    //  3. 如果可迭代对象成员不是promise，则调用 Promise.resolve 将其变为一个promise
+    // 返回promise的状态：由所有可迭代对象的成员（promise）的返回状态决定
+    //  1. 所有成员promise都返回成功，则all返回一个成功的promise，值为所有成员promise返回结果组成的数组（按成员顺序排列）
+    //  2. 只要一个成员promise返回失败，则all返回一个失败的promise，值为第一个失败的成员promise的失败原因
+    //  3. 如果成员promise自身定义了catch方法，那么它被rejected时被自身定义的catch捕获，并返回一个新的promise（用这个新promise代替该成员promise）
+    static all(promiseArr) {
+        return new Promise((resolve, reject) => {
+            if ((promiseArr == undefined) || !promiseArr[Symbol.iterator]) {
+                return reject(new TypeError(`${promiseArr === undefined ? "" : typeof promiseArr} ${promiseArr} is not iterable (cannot read property Symbol(Symbol.iterator))`))
+            }
+
+            let index = 0
+            let result = []
+            if (promiseArr.length === 0) {
+                return resolve(result)
+            }
+            function processValue(i, data) {
+                result[i] = data;
+                if (++index === promiseArr.length) {
+                    resolve(result)
+                }
+            }
+            for (let i = 0; i < promiseArr.length; i++) {
+                //promiseArr[i] 可能是普通值，用 Promise.resolve 包一层，确保都是promise
+                Promise.resolve(promiseArr[i]).then((data) => {
+                    processValue(i, data)
+                }, (err) => {
+                    return reject(err)
+                })
+            }
+
+        })
+    }
+
+    // 参数：实现iterator接口的可迭代对象（数组、字符串）
+    //  1. 如果参数不存在或者不可迭代，返回一个失败的promise，值为类型错误
+    //  2. 如果可迭代对象成员为空，【返回一个PENDING 状态的promise】
+    //  3. 如果可迭代对象成员不是promise，则调用 Promise.resolve 将其变为一个promise
+    // 返回promise的状态：
+    //  1. 只要一个成员promise返回，则race返回相同状态的promise
+    static race(promiseArr) {
+        return new Promise((resolve, reject) => {
+
+            if ((promiseArr == undefined) || !promiseArr[Symbol.iterator]) {
+                return reject(new TypeError(`${promiseArr === undefined ? "" : typeof promiseArr} ${promiseArr} is not iterable (cannot read property Symbol(Symbol.iterator))`))
+            }
+            if (promiseArr.length === 0) {
+                return
+            }
+
+            for (let i = 0; i < promiseArr.length; i++) {
+                Promise.resolve(promiseArr[i]).then((result) => {
+                    return resolve(result)
+                }, (err) => {
+                    return reject(err)
+                });
+            }
+
+        });
+    }
+
 }
 
+// 在类上扩展一个方法（非规范中的，es6的promise没有）
 // 测试入口
 // Promise的延迟对象，测试的时候会调用这个函数，用这个函数返回的结果（dfd对象）测试当前的Promise和resolve、reject是否符合规范
-MyPromise.defer = MyPromise.deferred = function () {
+Promise.defer = Promise.deferred = function () {
     let dfd = {}
-    dfd.promise = new MyPromise((resolve, reject) => {
+    // 在dfd上挂载一个promise属性，值是一个PENDING状态的promise
+    dfd.promise = new Promise((resolve, reject) => {
         // 把成功和失败的回调都挂在dfd对象上
         dfd.resolve = resolve
         dfd.reject = reject
@@ -300,10 +460,10 @@ MyPromise.defer = MyPromise.deferred = function () {
 
 
 // node 的commenJS规范
-module.exports = MyPromise
+module.exports = Promise
 
 
-// let p = new MyPromise(res => {
+// let p = new Promise(res => {
 //     setTimeout(() => {
 //         throw new Error
 //     }, 0);
