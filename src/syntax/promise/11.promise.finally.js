@@ -1,8 +1,3 @@
-
-
-
-
-
 const Promise = require("./2.my-promise")
 
 Promise.reject(123).finally(() => {
