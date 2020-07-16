@@ -15,17 +15,19 @@
 // let p2 = Promise.resolve(p1)
 // console.log("p1 === p2 ", p1 === p2) // p1 === p2  true
 
-//=================测试 thenable 对象执行顺序==================================
+//=================测试 thenable 对象执行顺序 及微任务==================================
 // const Promise = require('./2.my-promise')
 
 // let p = Promise.resolve(20);
 // p.then((data) => {
 //     console.log(data);
 // });
-
+// setTimeout(() => {
+//     console.log("settimeout")
+// }, 0);
 
 // let p2 = Promise.resolve({
-//     // thenable.then 是异步执行的
+//     // thenable.then 是异步执行的(微任务)
 //     then: function (resolve, reject) {
 //         resolve(30);
 //     }
@@ -45,6 +47,7 @@
 // 20
 // 400
 // 30
+// settimeout
 
 //=================测试 thenable 抛出异常==================================
 /* 
