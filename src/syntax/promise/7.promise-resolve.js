@@ -186,33 +186,47 @@ setTimeout(() => {
 */
 
 //==============================resolve(thenable对象)================================
+// 说明 ES6 的resolve可以解析thenable对象
 
-/* 
-// let Promise = require('./2.my-promise')
+let Promise = require('./2.my-promise')
 
 let obj = {
-    then: function (resolve, reject) {
-        console.log("异步执行then")
-        resolve('成功啦')
-        // reject('失败啦')
+    then: function (onResolved, onRejected) {
+        console.log("异步执行thenable then")
+        onResolved('成功啦')
+        // onRejected('失败啦')
         throw Error("Oops!")
     }
 }
-
+setTimeout(() => {
+    console.log("settimeout") 
+}, 0);
 var p1 = new Promise(function (resolve, reject) {
     console.log("1")
-    // 异步执行
     resolve(obj);
     console.log("2")
 });
-console.log("p1 = ", p1)
+p1.then(res=>{
+    console.log("promise then")
+}) 
+console.log("script end = ", p1)
 setTimeout(() => {
     console.log("p1 = ", p1) 
-}, 1000);
+}, 0);
 
 // 1
 // 2
-// p1 =  Promise { <pending> }
-// 异步执行then
-// p1 =  Promise { <rejected> '失败啦' } 
-*/
+// script end =  Promise { <pending> }
+// 异步执行thenable then  (微任务)
+// promise then
+// settimeout
+// p1 =  Promise { '成功啦' }
+
+// 如果是宏任务，则输出顺序应为
+// 1
+// 2
+// script end =  Promise { <pending> }
+// settimeout
+// 异步执行thenable then
+// promise then
+// p1 =  Promise { '成功啦' }
