@@ -1,65 +1,144 @@
 
 //============================then链式调用及值传递===============================
+
+/* 
 // let fs = require('fs')
 // let Promise = require('./2.my-promise')
+
 // 需求是读取一个文件获取路径，然后再继续读取
 
 // 【回调嵌套】写法
 // error first ,错误第一，异步方法无法通过try-catch 捕获异常
-// fs.readFile('./name.txt', 'utf-8', (err, data) => {
-//     // 错误处理
-//     if (err) {
-//         //...
-//     }
-//     console.log("data = ", data)
-//     fs.readFile(data, 'utf-8', (err, data) => {
-//         // 错误处理
-//         if (err) {
-//             // ...
-//         }
-//         console.log("data = ", data)
-//     })
-// })
+fs.readFile('./name.txt', 'utf-8', (err, data) => {
+    // 错误处理
+    if (err) {
+        //...
+    }
+    console.log("data = ", data)
+    fs.readFile(data, 'utf-8', (err, data) => {
+        // 错误处理
+        if (err) {
+            // ...
+        }
+        console.log("data = ", data)
+    })
+})
 
-// // 利用promise优化写法，【链式调用】写法
-// function readFileSync(filePath) {
-//     return new Promise((res, rej) => {
-//         fs.readFile(filePath, 'utf-8', (err, data) => {
-//             if (err) return rej(err)
-//             // 一般加 return，因为 res 不会结束 promise 的执行（后面的代码还会执行），但是执行res/rej就意味着promise的作用已经完成了
-//             return res(data)
-//         })
-//     })
-// }
+// 利用promise优化写法，【链式调用】写法
+function readFileSync(filePath) {
+    return new Promise((res, rej) => {
+        fs.readFile(filePath, 'utf-8', (err, data) => {
+            if (err) return rej(err)
+            // 一般加 return，因为 res 不会结束 promise 的执行（后面的代码还会执行），但是执行res/rej就意味着promise的作用已经完成了
+            return res(data)
+        })
+    })
+}
 
-// // then的链式调用：then一次获取第一次返回结果，再then第二次，解决嵌套问题
-// readFileSync('./name.txt').then((data) => {
-//     console.log('获取到数据', data)
-//     // 这里需要通过 return 明确指定返回值，否则默认返回 undefined，传入下一个then的成功回调中（尤其是需要返回promise的情况）
-//     // return 100 //-> 下一个then的成功回调
-//     // throw Error('手动error') //-> 下一个then的失败回调
-//     return readFileSync(data)  //-> 根据返回的promise状态决定下一个then的回调
-// }).then((data) => {
-//     console.log('获取到数据', data)
-// }, (err) => {
-//     console.log('失败', err)
-// })
+// then的链式调用：then一次获取第一次返回结果，再then第二次，解决嵌套问题
+readFileSync('./name.txt').then((data) => {
+    console.log('获取到数据', data)
+    // 这里需要通过 return 明确指定返回值，否则默认返回 undefined，传入下一个then的成功回调中（尤其是需要返回promise的情况）
+    // return 100 //-> 下一个then的成功回调
+    // throw Error('手动error') //-> 下一个then的失败回调
+    return readFileSync(data)  //-> 根据返回的promise状态决定下一个then的回调
+}).then((data) => {
+    console.log('获取到数据', data)
+}, (err) => {
+    console.log('失败', err)
+})
+*/
 
-// 用 setTimeout 实现then的异步调用（宏任务），跟es6执行顺序不同。
+//========================then宏任务微任务=========================
+
+// let fs = require('fs')
+// let Promise = require('./2.my-promise')
+// 需求是读取一个文件获取路径，然后再继续读取
+
+/* 
+fs.readFile('./name.txt', 'utf-8', (err, data) => {
+    // 错误处理
+    if (err) {
+        //...
+    }
+    console.log("data = ", data)
+    fs.readFile(data, 'utf-8', (err, data) => {
+        // 错误处理
+        if (err) {
+            // ...
+        }
+        console.log("data = ", data)
+    })
+})
+
+function readFileSync(filePath) {
+    return new Promise((res, rej) => {
+        fs.readFile(filePath, 'utf-8', (err, data) => {
+            if (err) return rej(err)
+            return res(data)
+        })
+    })
+}
+
+readFileSync('./name.txt').then((data) => {
+    console.log('获取到数据', data)
+    return readFileSync(data) 
+}).then((data) => {
+    console.log('获取到数据', data)
+}, (err) => {
+    console.log('失败', err)
+})
+*/
+
+// fs.readFile 的回调函数是宏任务
+
+// 用 setTimeout 实现then的异步调用（宏任务），跟es6执行顺序不同
+/* 
+// 第一轮 
+fs.readFile 添加一个宏任务1（读取到数据之后触发）
+readFileSync 添加一个宏任务2（读取到数据之后触发）
+// 第二轮(读取到数据)
+宏任务1执行，输出=>data =  age.txt，添加宏任务3
+宏任务2执行，添加宏任务4（then）
+// 第三轮
+宏任务3执行，输出=>data =  27
+// 第四轮
+宏任务4执行，输出=>获取到数据 age.txt，添加宏任务5
+// 第五轮
+宏任务5执行，添加宏任务6（then）
+// 第六轮
+宏任务6执行，输出=>获取到数据 27
+
 // data =  age.txt
 // data =  27
 // 获取到数据 age.txt
 // 获取到数据 27
+
+*/
+
 
 // 换用 process.nextTick 来实现则执行顺序相同
-// fs.readFile 的回调函数应该也是宏任务，读取到数据之后触发执行。而包装的 readFileSync 里面也是个宏任务，当时这个宏任务执行的时候
-// 会添加一个微任务（then），然后立即执行微任务then的回调。因此顺序如下：
+/* 
+// 第一轮 
+fs.readFile 添加一个宏任务1（读取到数据之后触发）
+readFileSync 添加一个宏任务2（读取到数据之后触发）
+// 第二轮(读取到数据)
+宏任务1执行，输出=>data =  age.txt，添加宏任务3
+宏任务2执行，添加微任务1（then）
+// 第三轮
+微任务1执行，输出=>获取到数据 age.txt，添加宏任务4
+// 第四轮
+宏任务3执行，输出=>data =  27
+// 第五轮
+宏任务4执行，添加微任务2（then）
+// 第六轮
+微任务2执行，输出=>获取到数据 27
+
 // data =  age.txt
 // 获取到数据 age.txt
 // data =  27
 // 获取到数据 27
-
-
+*/
 
 //=============================测试 then 循环引用问题======================
 
