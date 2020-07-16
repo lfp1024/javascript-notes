@@ -17,8 +17,8 @@ promise循环引用问题：
     返回一个新的promise都会执行构造函数（调用then的时候）
 
 promise递归解析问题：
-    then的参数函数返回promise会递归解析，直到返回非promise
-    构造函数中提供的resolve方法会递归解析，直到返回非promise
+    then的参数函数返回promise会递归解析，直到返回非promise或被reject
+    构造函数中提供的resolve方法会递归解析，直到返回非promise或被reject（reject不会解析promise）
 */
 
 const u = require("./utils")
@@ -162,14 +162,7 @@ class Promise {
             if (((typeof value === 'object' && value !== null) || typeof value === 'function') &&
                 typeof value.then === 'function') {
                 // thenable 对象
-                // 我们实现的then的回调是异步的，而thenable对象中then的回调是同步的，因此这里需要加异步
-                // return setTimeout(() => {
-                //     try {
-                //         value.then(resolve, reject)
-                //     } catch (error) {
-                //         reject(error)
-                //     }
-                // }, 0);
+                // 我们实现的then的回调是异步的，而thenable对象中then的回调是同步的，因此这里需要加异步（微任务）
                 return process.nextTick(() => {
                     try {
                         value.then(resolve, reject)
@@ -473,15 +466,8 @@ class Promise {
             if (((typeof value === 'object' && value !== null) || typeof value === 'function') &&
                 typeof value.then === 'function') {
                 // thenable 对象
-                // 我们实现的then的回调是异步的，而thenable对象中then的回调是同步的，因此这里需要加异步
-
-                // setTimeout(() => {
-                //     try {
-                //         value.then(resolve, reject)
-                //     } catch (error) {
-                //         reject(error)
-                //     }
-                // }, 0);
+                // 我们实现的then的回调是异步的，而thenable对象中then的回调是同步的，因此这里需要加异步（微任务）
+                // 调用内部的then方法，无法做手脚。而thenable对象中可以对then方法做手脚，因此这里要放到try-catch中
 
                 process.nextTick(() => {
                     try {
