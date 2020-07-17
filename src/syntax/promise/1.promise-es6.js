@@ -1,5 +1,5 @@
 /*
-Promise 实现规范 Promise/A+ 规范 https://promisesaplus.com/
+Promise 实现规范 Promise/A+ 地址: https://promisesaplus.com/
 - es6 已经基于该规范实现并提供给我们使用，属于es6的一个内置类 // new Promise(exector)
 - ie 不支持promise，去mdn 或 caniuse.com 去看兼容性
 - 需要自己实现一个兼容版本的。polyfill 腻子（shim 垫片）（填平不支持的语法，也就是实现兼容），有个库 es6-promise 已经实现了兼容
@@ -30,6 +30,10 @@ promise 异常问题：
      3. 在resolve或reject之后抛出的异常，被try-catch捕获，不影响promise的状态
     如果在then回调函数中抛出异常
      1. 被then中的try-catch捕获，返回失败的promise
+
+promise then事件循环问题：
+    调用then就会将then的参数函数注册到微任务队列末尾，在下一轮事件循环才会执行（延迟一轮执行）
+
 */
 
 const u = require("./utils")
@@ -51,9 +55,9 @@ const resolvePromise = (promise2, x, resolve, reject) => {
     if (promise2 === x) {
         log.debug(`promise.then circular reference`)
         // ES6 规范写法 无法通过Promise/A+测试
-        // return reject('[TypeError: Chaining cycle detected for promise #<Promise>]')
+        return reject('[TypeError: Chaining cycle detected for promise #<Promise>]')
         // Promise/A+ 规范写法
-        return reject(new TypeError('Chaining cycle detected for promise #<Promise>'))
+        // return reject(new TypeError('Chaining cycle detected for promise #<Promise>'))
     }
 
     let called // 标记，防止别的库实现的promise走成功后又走失败
