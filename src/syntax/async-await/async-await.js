@@ -20,7 +20,7 @@ const _await = (() => {
     return (arg) => {
         n++
         return (onResolved, onRejected) => {
-            let innerPromise = onRejected ? Promise.resolve(arg).catch(onRejected).then(onResolved, onRejected)
+            const innerPromise = onRejected ? Promise.resolve(arg).catch(onRejected).then(onResolved, onRejected)
                 : Promise.resolve(arg).then(onResolved, onRejected)
             return innerPromise
         }
