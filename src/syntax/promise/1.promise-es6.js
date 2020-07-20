@@ -48,6 +48,9 @@ promise 异常问题：
 promise then事件循环问题：
     调用then就会将then的参数函数注册到微任务队列末尾，在下一轮事件循环才会执行（延迟一轮执行）
 
+Promise/A+ 测试问题
+    1. 注掉规范方法中的日志
+    2. 注掉非规范中的功能（3个地方）
 */
 
 const u = require("./utils")
@@ -70,7 +73,7 @@ const resolvePromise = (promise2, x, resolve, reject) => {
         log.debug(`promise.then circular reference`)
         // ES6 规范写法 无法通过Promise/A+测试
         return reject('[TypeError: Chaining cycle detected for promise #<Promise>]')
-        // Promise/A+ 规范写法
+        // Promise/A+ 规范
         // return reject(new TypeError('Chaining cycle detected for promise #<Promise>'))
     }
 
@@ -123,12 +126,15 @@ const resolvePromise = (promise2, x, resolve, reject) => {
                 //         reject(e)
                 //     })
 
-                // 使用 process.nextTick 的原因（个人理解）
+
+                // 根据测试结果（4.promise-then.js 最后一个测试用例），需要异步执行thenable的then方法。使用 process.nextTick（个人理解）
                 // 1. process.nextTick 事件将在当前阶段的尾部执行（下次事件循环之前）
                 // 2. process.nextTick 将事件维护在 nextTickQueue 中
                 //    对于promise来说，没加之前，立即调用then将回调放入 nextTickQueue 中；加了之后，先将对then的调用放入 nextTickQueue 中
                 //    执行会后，再将回调放入 nextTickQueue 中。即对于nextTickQueue来说，回调会延迟执行，但最终都在当前阶段执行，
                 //    对事件循环整体来说没有太大的影响
+                // 3. 无法通过Promise/A+ 测试！！！
+
                 process.nextTick(() => {
                     then.call(x,
                         y => {
@@ -370,7 +376,7 @@ class Promise {
                         resolvePromise(promise2, x, resolve, reject)
                     } catch (error) {
                         // 参数函数异常，then返回一个失败的promise2
-                        log.error("RESOLVED: catch error:", error.message)
+                        log.error("RESOLVED: catch error:", error)
                         reject(error)
                     }
                 })
@@ -395,7 +401,7 @@ class Promise {
                         log.debug("REJECTED:then return x =", x)
                         resolvePromise(promise2, x, resolve, reject)
                     } catch (error) {
-                        log.error("REJECTED: catch error:", error.message)
+                        log.error("REJECTED: catch error:", error)
                         reject(error)
                     }
                 })
@@ -444,7 +450,7 @@ class Promise {
                             log.debug("PENDING->RESOLVED:then return x =", x)
                             resolvePromise(promise2, x, resolve, reject)
                         } catch (error) {
-                            log.error("PENDING->RESOLVED: catch error:", error.message)
+                            log.error("PENDING->RESOLVED: catch error:", error)
                             reject(error)
                         }
                     })
@@ -469,7 +475,7 @@ class Promise {
                             log.debug("PENDING->REJECTED:then return x =", x)
                             resolvePromise(promise2, x, resolve, reject)
                         } catch (error) {
-                            log.error("PENDING->REJECTED: catch error:", error.message)
+                            log.error("PENDING->REJECTED: catch error:", error)
                             reject(error)
                         }
                     })
