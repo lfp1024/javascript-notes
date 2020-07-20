@@ -218,10 +218,10 @@ promise2.then(res => {
  * resolve(promise)会接续解析，reject(promise)不会继续解析
 */
 
-/* let Promise = require('./1.promise-es6')
-let p = new Promise((resolve, reject) => {
-    resolve(1)
-}) */
+// let Promise = require('./1.promise-es6')
+// let p = new Promise((resolve, reject) => {
+//     resolve(1)
+// })
 
 /* // [resolve(promise)]
 // 3层promise：最外层p1，中间层p2(then的第一个回调返回的promise)，最内层p3（1秒后成功或失败）
@@ -243,9 +243,9 @@ let p1 = p.then(value => {
 })
 // 外面想要获取当前then返回promise的结果，还是要调用当前then返回promise的then方法
 p1.then(res => {
-    console.log("当前then返回promise的结果1", res)   // 当前then返回promise的结果 success
+    console.log("当前then返回promise的结果1", res)   // 当前then返回promise的结果1 success
 }, err => {
-    console.log("当前then返回promise的原因1", err)   // 当前then返回promise的原因：fail
+    console.log("当前then返回promise的原因1", err)   // 当前then返回promise的原因1 fail
 }) */
 
 
@@ -294,3 +294,62 @@ promise.then().then().then(result => {
 }, err => {
     console.log(err) // 2
 }) */
+
+
+//=====================测试then参数函数返回thenable对象==========================
+/*  
+ * then解析 thenable 调用其then 方法也是异步调用的
+*/
+// let Promise = require('./1.promise-es6')
+
+/* console.log("--script start--")
+let obj = {
+    then: function (onResolved, onRejected) {
+        console.log("异步执行thenable then")
+        onResolved('成功啦')
+        // onRejected('失败啦')
+        // throw Error("Oops!")
+    }
+}
+setTimeout(() => {
+    console.log("settimeout")
+}, 0)
+
+let p = Promise.resolve('ok')
+let p1 = p.then(res => {
+    console.log("p2 then")
+    return obj
+})
+
+let p2 = Promise.resolve('ok2')
+let p3 = p2.then(res => {
+    console.log("p3 then")
+    return 
+})
+
+console.log("p1 =", p1)
+
+setTimeout(() => {
+    console.log("p1 = ", p1)
+}, 0)
+console.log("--script end--") */
+
+// 输出：
+// --script start--
+// p1 = Promise { <pending> }
+// --script end--
+// p2 then
+// p3 then
+// 异步执行thenable then
+// settimeout
+// p1 =  Promise { '成功啦' }
+
+// 如果不是异步调用，顺序是：
+// --script start--
+// p1 = Promise { <pending> }
+// --script end--
+// p2 then
+// 异步执行thenable then
+// p3 then
+// settimeout
+// p1 =  Promise { '成功啦' }
