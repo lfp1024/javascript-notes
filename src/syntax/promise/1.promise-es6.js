@@ -1,6 +1,6 @@
 /*
 Promise 实现规范 Promise/A+ 地址: https://promisesaplus.com/
-- es6 已经基于该规范实现并提供给我们使用，属于es6的一个内置类 // new Promise(exector)
+- es6 已经基于该规范实现并提供给我们使用，属于es6的一个内置类 new Promise(executor)
 - ie 不支持promise，去mdn 或 caniuse.com 去看兼容性
 - 需要自己实现一个兼容版本的。polyfill 腻子（shim 垫片）（填平不支持的语法，也就是实现兼容），有个库 es6-promise 已经实现了兼容
 
@@ -54,7 +54,6 @@ Promise/A+ 测试问题
 */
 
 const u = require("./utils")
-
 const log = u.debugGenerator(__filename)
 
 // 状态（用常量表示）
@@ -70,7 +69,7 @@ const resolvePromise = (promise2, x, resolve, reject) => {
 
     // 循环引用-自己等待自己（promise2 和 x 引用同一个对象）
     if (promise2 === x) {
-        log.debug(`promise.then circular reference`)
+        log.debug('promise.then circular reference')
         // ES6 规范写法 无法通过Promise/A+测试
         return reject('[TypeError: Chaining cycle detected for promise #<Promise>]')
         // Promise/A+ 规范
@@ -84,14 +83,14 @@ const resolvePromise = (promise2, x, resolve, reject) => {
     if ((typeof x === 'object' && x !== null) || typeof x === 'function') {
         // 如果x是对象或函数
         try {
-            // promise都有一个then方法，取x的属性then，看是不是函数来判断x是不是promise
+            // promise(x)都有一个then方法，取x的属性then，看是不是函数来判断x是不是promise
             // 通过 x.then 取值可能会报错，需要try-catch (参考示例 promise-resolvePromise.js)
             // 若x没有属性then,则值为undefined
             const then = x.then
             if (typeof then === 'function') {
                 // 至此，认为x是promise
 
-                // 不能写成 x.then，因为这样会再次取值，有可能报错  
+                // 不能写成 x.then，因为这样会再次取值，有可能报错 (参考示例 promise-resolvePromise.js)
                 // 用 call 方法，保证then方法中的THIS是需要获取结果的promise实例(x)。如果不call则是window或global
                 // 调用then方法，就会执行then的逻辑，then会监听回调的返回值，以此决定自己返回promise的状态
                 // 如果是thenable对象，then 方法体中可能会报错，会被catch捕获到
@@ -111,7 +110,7 @@ const resolvePromise = (promise2, x, resolve, reject) => {
 
                 //         log.debug(`before resolvePromise recursion, y is '${y}'`)
                 //         // 第一个参数仍然是最外层then返回的promise2（用来保证不发生循环引用）,resolve、reject 也是promise2的
-                //         //   等y(promise)返回后，调用promise2的resolve或reject
+                //         //   当y(promise)返回后，调用promise2的resolve或reject
                 //         // 当最终y不是promise,在【终结者1或2】结束，或y返回失败，递归回到这里，嵌套的resolvePromise依次结束
                 //         resolvePromise(promise2, y, resolve, reject)
                 //         log.debug(`end resolvePromise recursion, y is '${y}'`)
@@ -150,7 +149,7 @@ const resolvePromise = (promise2, x, resolve, reject) => {
 
                             log.debug(`before resolvePromise recursion, y is '${y}'`)
                             // 第一个参数仍然是最外层then返回的promise2（用来保证不发生循环引用）,resolve、reject 也是promise2的
-                            //   等y(promise)返回后，调用promise2的resolve或reject
+                            //   当y(promise)返回后，调用promise2的resolve或reject
                             // 当最终y不是promise,在【终结者1或2】结束，或y返回失败，递归回到这里，嵌套的resolvePromise依次结束
                             resolvePromise(promise2, y, resolve, reject)
                             log.debug(`end resolvePromise recursion, y is '${y}'`)
@@ -239,7 +238,7 @@ class Promise {
                 return value.then(resolve, reject)
             }
 
-            // resolve解析theable对象是ES6的功能，无法通过Promise/A+测试
+            // resolve解析thenable对象是ES6的功能，无法通过Promise/A+测试
             if (((typeof value === 'object' && value !== null) || typeof value === 'function') &&
                 typeof value.then === 'function') {
                 // thenable 对象
@@ -355,7 +354,7 @@ class Promise {
                 // setTimeout(() => {
                 //     try {
                 //         const x = onResolved(this.value)
-                //         log.debug("RESOLVED:then return promise, x=", x)
+                //         log.debug("RESOLVED:then return x =", x)
                 //         resolvePromise(promise2, x, resolve, reject)
                 //     } catch (error) {
                 //         reject(error)
@@ -387,7 +386,7 @@ class Promise {
                 // setTimeout(() => {
                 //     try {
                 //         const x = onRejected(this.value)
-                //         log.debug("REJECTED:then return promise")
+                //         log.debug("REJECTED:then return x =", x)
                 //         resolvePromise(promise2, x, resolve, reject)
                 //     } catch (error) {
                 //         reject(error)
@@ -423,7 +422,7 @@ class Promise {
                     // do other things...
 
                     // 这里本身虽然是异步的，但是不用定时器会报错：2.3.3: Otherwise...
-                    // 根据上面对状态的判断，如果是 RESULVED 或 REJECTED，then的回调是异步执行的。这里虽然判断是 PENDING 放入了数组中
+                    // 根据上面对状态的判断，如果是 RESOLVED 或 REJECTED，then的回调是异步执行的。这里虽然判断是 PENDING 放入了数组中
                     // 可是一旦promise状态改变，就会立即执行。不符合 promise状态改变then的回调是异步执行 的规范。【Promises/A+ 3.1】
                     // try {
                     //     const x = onResolved(this.value)
@@ -436,7 +435,7 @@ class Promise {
                     // setTimeout(() => {
                     //     try {
                     //         const x = onResolved(this.value)
-                    //         log.debug("PENDING->RESOLVED:then return promise")
+                    //         log.debug("PENDING->RESOLVED:then return x =", x)
                     //         resolvePromise(promise2, x, resolve, reject)
                     //     } catch (error) {
                     //         reject(error)
@@ -461,7 +460,7 @@ class Promise {
                     // setTimeout(() => {
                     //     try {
                     //         const x = onRejected(this.value)
-                    //         log.debug("PENDING->REJECTED:then return promise")
+                    //         log.debug("PENDING->REJECTED:then return x =", x)
                     //         resolvePromise(promise2, x, resolve, reject)
                     //     } catch (error) {
                     //         reject(error)
@@ -507,7 +506,7 @@ class Promise {
     finally(callback) {
         log.info(`call finally, promise is ${JSON.stringify(this)}`)
         return this.then(value => {
-            log.debug("finally: provious promise is resolved")
+            log.debug("finally: previous promise is resolved")
             // 如果前面promise成功，则进入这里
 
             // 执行顺序：在回调函数中：
@@ -517,7 +516,7 @@ class Promise {
             //  4.返回一个 PENDING 状态的promise。（此时对外面的then方法来说就是第一个参数回调返回值x是一个promise，继续解析）
             return Promise.resolve(callback()).then(() => value)
         }, err => {
-            log.debug("finally: provious promise is rejected")
+            log.debug("finally: previous promise is rejected")
             // 如果前面的promise失败，则进入这里
             return Promise.resolve(callback()).then(() => { throw err })
         })
@@ -528,7 +527,7 @@ class Promise {
     //  1. 是一个promise实例，则直接原样返回
     //  2. 是一个thenable对象，则异步调用其then方法,决定resolve返回promise的状态
     //    2.1 Promise.resolve([thenable]) 可能会返回一个失败的promise
-    //  3. 不是thenabled对象或promise实例，则返回一个新的成功的promise，值为该参数
+    //  3. 不是thenable对象或promise实例，则返回一个新的成功的promise，值为该参数
     //  4. 不传参数，返回一个新的成功的promise，值为undefined
     static resolve(value) {
         // 不处理兼容
@@ -644,5 +643,5 @@ Promise.defer = Promise.deferred = function () {
     return dfd
 }
 
-// node 的commenJS规范
+// node 的commentJS规范
 module.exports = Promise
