@@ -6,17 +6,17 @@ const Promise = require("./1.promise-es6")
 */
 
 // 嵌套promise的写法
-function read(filePath) {
-    // 上来先套一层promise
-    return new Promise((resolve, reject) => {
-        fs.readFile(filePath, "utf-8", (err, data) => {
-            if (err) {
-                return reject(err)
-            }
-            return resolve(data)
-        })
-    })
-}
+// function read(filePath) {
+//     // 上来先套一层promise
+//     return new Promise((resolve, reject) => {
+//         fs.readFile(filePath, "utf-8", (err, data) => {
+//             if (err) {
+//                 return reject(err)
+//             }
+//             return resolve(data)
+//         })
+//     })
+// }
 
 // 用defer解决嵌套promise（Q 库常用写法）
 function read(filePath) {
