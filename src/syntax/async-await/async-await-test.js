@@ -209,7 +209,7 @@ let p = _async(function f() {
         console.log("4")
         _await(new Promise((res, rej) => {
             rej("2 error")
-        }))() 
+        }))()
     })
 })
 console.log(p)
@@ -458,7 +458,7 @@ setTimeout(() => {
 // 4 123
 // Promise { <rejected> '2 error' }
 
-// 变形
+/* // 变形
 console.log("a")
 let p = _async(function f() {
     console.log("1")
@@ -476,14 +476,14 @@ let p = _async(function f() {
         // catch 回调作为 onRejected 传入
     }, (err) => {
         console.log('i catch you', err)
-        return 123  
+        return 123
     })
 })
 console.log(p)
 console.log("b")
 setTimeout(() => {
     console.log(p)
-}, 0);
+}, 0); */
 
 
 //=======================测试await 基本类型值（变形ok）===================
