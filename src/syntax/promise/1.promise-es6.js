@@ -17,19 +17,33 @@ promise循环引用问题：
     返回一个新的promise都会执行构造函数（调用then的时候）
 
 promise递归解析问题：
-    then的参数函数返回promise会递归解析，直到返回非promise或被reject
-    构造函数中提供的resolve方法会递归解析，直到返回非promise或被reject（reject不会解析promise）
+    解析promise即 调用 该promise的 then方法，将外层promise的resolve reject 作为内层promise返回后 触发执行的 then方法的 回调
+      then的参数函数返回promise会递归解析，直到返回非promise或被reject。
+        底层原理是将then返回的 promise的 resolve和reject 作为参数函数返回的 promise的 then的 回调，
+        当参数函数返回的 promise返回后 才触发执行
+      构造函数中提供的resolve方法会递归解析，直到返回非promise或被reject（reject不会解析promise）
+        底层原理是将自己和reject作为参数promise的then的回调，当参数promise返回后，才触发执行
+    因此递归解析的时候
+      某内层失败后，外层依次调用其reject方法，也都返回失败
+      最内层成功后，外层依次调用其resolve方法，也都返回成功
+    注册then回调
+      递推的时候不会将then的回调注册到微任务队列尾部
+      回归的时候，promise状态改变才会注册到微任务队列尾部，在下次循环执行
 
 promise 异常问题：
-    如果没有传递executor函数，直接抛出异常，外面可以同步捕获
-    如果在executor函数体中异步代码抛出异常，外面无法同步捕获，只能全局捕获（或者异步代码自己捕获，调用reject通知外面）
-    其他情况下promise不会将异常抛到全局，都是返回一个失败的promise
-    如果在executor函数体中同步代码抛出异常
-     1. 在resolve或reject之前抛出的异常，被try-catch捕获，返回失败的promise
-     2. 在resolve或reject接收的参数函数中抛出异常，被try-catch捕获，返回失败的promise
-     3. 在resolve或reject之后抛出的异常，被try-catch捕获，不影响promise的状态
-    如果在then回调函数中抛出异常
-     1. 被then中的try-catch捕获，返回失败的promise
+    1. 如果没有传递executor函数，直接抛出异常，外面可以同步捕获
+    2. 如果在executor函数体中异步代码抛出异常，外面无法同步捕获，只能全局捕获（或者异步代码自己捕获，调用reject通知外面）
+    3. 其他情况下promise不会将异常抛到全局，都是返回一个失败的promise
+    4. 如果在executor函数体中同步代码抛出异常
+      4.1 在resolve或reject之前抛出的异常，被try-catch捕获，返回失败的promise
+      4.2 在resolve或reject接收的参数函数中抛出异常，被try-catch捕获，返回失败的promise
+      4.3 在resolve或reject之后抛出的异常，被try-catch捕获，不影响promise的状态
+    5. 如果在then回调函数中抛出异常
+      5.1 被then中的try-catch捕获，返回失败的promise
+    6. thenable对象
+      6.1 如果在其then参数函数resolve和reject之前抛异常，都会被try-catch捕获，返回失败的promise
+          e.g. Promise.resolve、构造函数中的resolve、then的resolvePromise
+      6.2 如果在其then参数函数resolve和reject之后抛异常，会被try-catch捕获，但是不改变promise的状态
 
 promise then事件循环问题：
     调用then就会将then的参数函数注册到微任务队列末尾，在下一轮事件循环才会执行（延迟一轮执行）
@@ -80,34 +94,71 @@ const resolvePromise = (promise2, x, resolve, reject) => {
                 // 如果是thenable对象，then 方法体中可能会报错，会被catch捕获到
                 // 根据内层promise(x)的状态和值 决定外层promise2的状态和值
 
-                then.call(x,
-                    y => {
-                        //【这里调用别人实现的promise中的then方法，执行自己传入的回调】，无法控制别人的代码执行几个回调，只能控制自己传入的回调（添加判断）
-                        // 防止走成功后又走失败（自己实现在定义resolve和reject的时候有判断是否为 PENDING 状态）
-                        if (called) return
-                        called = true
+                // then.call(x,
+                //     y => {
+                //         //【这里调用别人实现的promise中的then方法，执行自己传入的回调】，无法控制别人的代码执行几个回调，只能控制自己传入的回调（添加判断）
+                //         // 防止走成功后又走失败（自己实现在定义resolve和reject的时候有判断是否为 PENDING 状态）
+                //         if (called) return
+                //         called = true
 
-                        // 等 x(promise) 返回成功（值为y）。则执行x的then方法的第一个参数函数（这里传入的回调）
-                        // 即执行当前then方法返回promise2的resolve方法，使当前then返回一个成功的promise，值为x(promise)的成功结果y =>resolve(y)
+                //         // 等 x(promise) 返回成功（值为y）。则执行x的then方法的第一个参数函数（这里传入的回调）
+                //         // 即执行当前then方法返回promise2的resolve方法，使当前then返回一个成功的promise，值为x(promise)的成功结果y =>resolve(y)
 
-                        // resolve(y) 但是为了解决返回promise(x)成功又返回promise的现象(y还是一个promise)，这里需要递归解析
+                //         // resolve(y) 但是为了解决返回promise(x)成功又返回promise的现象(y还是一个promise)，这里需要递归解析
 
-                        log.debug(`before resolvePromise recursion, y is '${y}'`)
-                        // 第一个参数仍然是最外层then返回的promise2（用来保证不发生循环引用）,resolve、reject 也是promise2的
-                        //   等y(promise)返回后，调用promise2的resolve或reject
-                        // 当最终y不是promise,在【终结者1或2】结束，或y返回失败，递归回到这里，嵌套的resolvePromise依次结束
-                        resolvePromise(promise2, y, resolve, reject)
-                        log.debug(`end resolvePromise recursion, y is '${y}'`)
-                    },
-                    e => {
-                        // 防止走成功后又走失败
-                        if (called) return
-                        called = true
+                //         log.debug(`before resolvePromise recursion, y is '${y}'`)
+                //         // 第一个参数仍然是最外层then返回的promise2（用来保证不发生循环引用）,resolve、reject 也是promise2的
+                //         //   等y(promise)返回后，调用promise2的resolve或reject
+                //         // 当最终y不是promise,在【终结者1或2】结束，或y返回失败，递归回到这里，嵌套的resolvePromise依次结束
+                //         resolvePromise(promise2, y, resolve, reject)
+                //         log.debug(`end resolvePromise recursion, y is '${y}'`)
+                //     },
+                //     e => {
+                //         // 防止走成功后又走失败
+                //         if (called) return
+                //         called = true
 
-                        // 同理，如果 x(promise) 返回失败，则当前then返回的promise2返回失败，值为x(promise)的失败原因
-                        // promise(x)失败又返回promise，不再递归解析，直接将最后的promise作为失败原因返回
-                        reject(e)
-                    })
+                //         // 同理，如果 x(promise) 返回失败，则当前then返回的promise2返回失败，值为x(promise)的失败原因
+                //         // promise(x)失败又返回promise，不再递归解析，直接将最后的promise作为失败原因返回
+                //         reject(e)
+                //     })
+
+                // 使用 process.nextTick 的原因（个人理解）
+                // 1. process.nextTick 事件将在当前阶段的尾部执行（下次事件循环之前）
+                // 2. process.nextTick 将事件维护在 nextTickQueue 中
+                //    对于promise来说，没加之前，立即调用then将回调放入 nextTickQueue 中；加了之后，先将对then的调用放入 nextTickQueue 中
+                //    执行会后，再将回调放入 nextTickQueue 中。即对于nextTickQueue来说，回调会延迟执行，但最终都在当前阶段执行，
+                //    对事件循环整体来说没有太大的影响
+                process.nextTick(() => {
+                    then.call(x,
+                        y => {
+                            //【这里调用别人实现的promise中的then方法，执行自己传入的回调】，无法控制别人的代码执行几个回调，只能控制自己传入的回调（添加判断）
+                            // 防止走成功后又走失败（自己实现在定义resolve和reject的时候有判断是否为 PENDING 状态）
+                            if (called) return
+                            called = true
+
+                            // 等 x(promise) 返回成功（值为y）。则执行x的then方法的第一个参数函数（这里传入的回调）
+                            // 即执行当前then方法返回promise2的resolve方法，使当前then返回一个成功的promise，值为x(promise)的成功结果y =>resolve(y)
+
+                            // resolve(y) 但是为了解决返回promise(x)成功又返回promise的现象(y还是一个promise)，这里需要递归解析
+
+                            log.debug(`before resolvePromise recursion, y is '${y}'`)
+                            // 第一个参数仍然是最外层then返回的promise2（用来保证不发生循环引用）,resolve、reject 也是promise2的
+                            //   等y(promise)返回后，调用promise2的resolve或reject
+                            // 当最终y不是promise,在【终结者1或2】结束，或y返回失败，递归回到这里，嵌套的resolvePromise依次结束
+                            resolvePromise(promise2, y, resolve, reject)
+                            log.debug(`end resolvePromise recursion, y is '${y}'`)
+                        },
+                        e => {
+                            // 防止走成功后又走失败
+                            if (called) return
+                            called = true
+
+                            // 同理，如果 x(promise) 返回失败，则当前then返回的promise2返回失败，值为x(promise)的失败原因
+                            // promise(x)失败又返回promise，不再递归解析，直接将最后的promise作为失败原因返回
+                            reject(e)
+                        })
+                })
 
             } else {
                 // x 不是 promise（是个普通对象或普通函数），例如：{then:123}
@@ -139,6 +190,7 @@ log.debug('====== my promise ======')
 class Promise {
 
     // 1. 创建类的实例，需要等构造函数中的代码全部执行完毕，才能拿到值
+    //  1.1 如果resolve或reject是异步调用，则构造函数执行完毕返回 PENDING 状态的promise
     // 2. THIS
     //  2.1 构造函数中的THIS指代当前实例对象
     constructor(executor) {
@@ -204,41 +256,8 @@ class Promise {
                 this.onResolvedCallbacks.forEach(cb => cb())
             }
 
-            // 兼容写法
-            // if (this.status === PENDING) {
-            //     // 先校验值，如果不是promise才继续执行（改变状态和值）
-            //     // 因为如果value是promise，则会决定当前promise的状态
-            //     if ((typeof value === 'object' && value !== null) || typeof value === 'function') {
-            //         try {
-            //             const then = value.then
-            //             if (typeof then === 'function') {
-            //                 // value is promise
-            //                 log.debug('value is a promise')
-            //                 resolvePromise(this, value, resolve, reject) // 这里涉及到递归,要有一个出口(判断逻辑不好抽离函数本身)
-            //                 // 如果 value 是异步的(这里就是异步的),resolvePromise异步执行
-            //                 log.debug("async resolve promise")
-            //             } else {
-            //                 log.debug("the property 'then' of 'value' is not a function, value =", value)
-            //                 this.value = value
-            //                 // 因为resolvePromise异步执行，所以对状态的改变只能放到出口
-            //                 this.status = RESOLVED
-            //                 this.onResolvedCallbacks.forEach(cb => cb())
-            //             }
-            //         } catch (error) {
-            //             log.debug("call then", error)
-            //             return reject(error)
-            //         }
-            //     } else {
-            //         // value is not a promise
-            //         log.debug('value is not a promise, value =', value)
-            //         this.value = value
-            //         // 因为resolvePromise异步执行，所以对状态的改变只能放到出口
-            //         this.status = RESOLVED
-            //         this.onResolvedCallbacks.forEach(cb => cb())
-            //     }
-            // }
-
-            log.debug(`------promise is------${this}`) // 打印resolve所属的promise
+            // JSON.stringify() 丢失注册的函数
+            log.debug("------promise is------", this) // 打印resolve所属的promise
         }
 
         // 1. 调用 reject方法，同步执行（如果放到定时器中，属于异步调用，但是调用后是立即同步执行的）
@@ -289,13 +308,15 @@ class Promise {
     //         无法自己实现一个微任务，只能调用宿主环境提供的API
     //   1.4 then方法在调用参数函数时会传入'THIS'(调用then的promise实例)的值，即参数函数可以拿到当前promise的值
     // 2. then方法 返回一个【新】的promise
+    //   2.1 then 方法的执行过程类似执行构造函数，处理完回调函数（注册到微任务队列或添加到待执行队列）之后，立即返回 PENDING 状态的promise
+    //       继续执行后续同步代码（因此链式调用会同步执行then方法，完后再执行then方法的回调）
     // 3. then方法 返回promise的状态 及 链式调用 promise返回值的传递规则：
     //   3.1 需要在参数函数中用return明确指定返回值，否则then方法默认返回一个成功的promise，值是undefined，传入下一个then的成功回调中
-    //   3.2 如果参数函数返回的是普通值（非promise实例、thenable对象、异常，即普通对象、数字、字符串、undefined（默认））
+    //   3.2 如果参数函数返回的是【普通值】（非promise实例、thenable对象、异常，即普通对象、数字、字符串、undefined（默认））
     //       则then方法返回一个成功的promise，值是该普通值，传入下一个then的成功回调中
-    //   3.3 如果参数函数抛出异常，会被then内部的try-catch捕获
+    //   3.3 如果参数函数【抛出异常】，会被then内部的try-catch捕获
     //       则then方法返回一个失败的promise，值是异常原因，传入下一个then的失败回调中
-    //   3.4 如果参数函数返回一个promise实例，则该promise实例的状态会决定当前then方法返回promise的状态，从而决定下一个then参数函数的执行情况
+    //   3.4 如果参数函数返回一个【promise实例】，则该promise实例的状态会决定当前then方法返回promise的状态，从而决定下一个then参数函数的执行情况
     //     3.4.1 如果参数函数返回一个成功的promise，则当前then也返回一个成功的promise，值是参数函数返回promise的成功结果，传入下一个then的成功回调中  
     //     3.4.2 如果参数函数返回一个失败的promise，则当前then也返回一个失败的promise，值是参数函数返回promise的失败原因，传入下一个then的失败回调中
     // 4. 错误处理
@@ -305,6 +326,7 @@ class Promise {
 
     then(onResolved, onRejected) {
         // 方法中的THIS是调用then的promise实例
+        log.info(`call then, promise status is ${this.status}`)
 
         // 判断是否传递参数以及传递的是不是函数
         // onResolved = typeof onResolved === 'function' ? onResolved : value => { return value }
@@ -338,7 +360,9 @@ class Promise {
                     try {
                         // 回调函数异步执行，外面executor的try-catch无法捕获到异常，因此需要在源头捕获
                         const x = onResolved(this.value)
-                        log.debug("RESOLVED:then return promise, x=", x)
+                        // 如果x是普通值，可以直接 resolve(x)
+                        log.debug("RESOLVED:then return x =", x)
+
                         // 递归解析回调函数的返回值x，决定then返回的promise2的状态
                         // 如果x是promise，调用该promise的then方法时，传递的两个参数函数就是当前then返回promise2的executor中提供的resolve reject
                         //   1. 如果该promise返回成功，则调用当前then返回promise2的resolve方法，使当前then返回一个成功的promise2
@@ -346,6 +370,7 @@ class Promise {
                         resolvePromise(promise2, x, resolve, reject)
                     } catch (error) {
                         // 参数函数异常，then返回一个失败的promise2
+                        log.error("RESOLVED: catch error:", error.message)
                         reject(error)
                     }
                 })
@@ -366,9 +391,11 @@ class Promise {
                 process.nextTick(() => {
                     try {
                         const x = onRejected(this.value)
-                        log.debug("REJECTED:then return promise")
+                        // 如果x是普通值，可以直接 resolve(x)
+                        log.debug("REJECTED:then return x =", x)
                         resolvePromise(promise2, x, resolve, reject)
                     } catch (error) {
+                        log.error("REJECTED: catch error:", error.message)
                         reject(error)
                     }
                 })
@@ -413,9 +440,11 @@ class Promise {
                     process.nextTick(() => {
                         try {
                             const x = onResolved(this.value)
-                            log.debug("PENDING->RESOLVED:then return promise")
+                            // 如果x是普通值，可以直接 resolve(x)
+                            log.debug("PENDING->RESOLVED:then return x =", x)
                             resolvePromise(promise2, x, resolve, reject)
                         } catch (error) {
+                            log.error("PENDING->RESOLVED: catch error:", error.message)
                             reject(error)
                         }
                     })
@@ -436,9 +465,11 @@ class Promise {
                     process.nextTick(() => {
                         try {
                             const x = onRejected(this.value)
-                            log.debug("PENDING->REJECTED:then return promise")
+                            // 如果x是普通值，可以直接 resolve(x)
+                            log.debug("PENDING->REJECTED:then return x =", x)
                             resolvePromise(promise2, x, resolve, reject)
                         } catch (error) {
+                            log.error("PENDING->REJECTED: catch error:", error.message)
                             reject(error)
                         }
                     })
@@ -457,20 +488,31 @@ class Promise {
 
     // node>10 
     // 表示前面的promise无论成功还是失败都会执行finally方法
-    //   无论如何必须要处理一个逻辑的时候使用，如果返回成功的promise不影响整个then链的结果
-    // 如果finally返回一个promise，会等待这个promise返回
-    //  1. 如果是成功的promise，忽略自己的返回结果，将前面promise的返回值传递下去
-    //     前面如果是成功，后面用then获取值，前面如果是失败，后面用catch捕获
-    //  2. 如果是失败的promise，将自己的失败原因，取代前面promise的返回值传递下去（后面用catch捕获）
-    // 调用callback不会传递参数（无法拿到前面promise的返回值）
+    //   当无论如何必须要处理一个逻辑的时候使用，如果返回成功的promise不影响整个then链的结果
+    // callback
+    //  1. 调用callback不会传递参数（无法拿到前面promise的返回值）
+    //  2. callback最终在then的参数函数中被调用
+    //  3. callback返回一个promise（如果不是则用Promise.resolve转换为promise），且会等待这个promise返回
+    // finally值传递规则
+    //  调用then方法返回一个promise，根据callback的执行结果决定自己的状态和值
+    //   1. 如果callback返回的promise成功，则finally返回成功的promise，值为前面promise的成功结果，传递下去（遵循 then 的链式调用原理）
+    //   2. 如果callback返回的promise失败，则finally返回失败的promise，值为callback返回promise的失败原因，取代并传递下去（遵循 then 的链式调用原理）
+    //   3. 如果callback执行报错，则被当前then回调的try-catch捕获，finally返回失败的promise，值为报错原因，取代并传递下去
     finally(callback) {
+        log.info(`call finally, promise is ${JSON.stringify(this)}`)
         return this.then(value => {
-            // 这里用 Promise.resolve 包一层，确保返回一个promise
-            // 如果前面promise成功，则进入这里，将前面promise的返回值传递下去（遵循 then 的链式调用原理）
+            log.debug("finally: provious promise is resolved")
+            // 如果前面promise成功，则进入这里
+
+            // 执行顺序：在回调函数中：
+            //  1.执行 callback()，返回一个值
+            //  2.执行 Promise.resolve()，返回一个promise
+            //  3.执行 then方法，处理回调 '()=>value' 
+            //  4.返回一个 PENDING 状态的promise。（此时对外面的then方法来说就是第一个参数回调返回值x是一个promise，继续解析）
             return Promise.resolve(callback()).then(() => value)
         }, err => {
-            // 如果前面的promise报错，则进入这里，将它的错误传递下去
-            // 如果是自己（callback 执行）报错，不会进入then，直接传递下去（代替前面promise的错误）
+            log.debug("finally: provious promise is rejected")
+            // 如果前面的promise失败，则进入这里
             return Promise.resolve(callback()).then(() => { throw err })
         })
     }
@@ -545,7 +587,7 @@ class Promise {
             }
             for (let i = 0; i < promises.length; i++) {
                 //promises[i] 可能是普通值，用 Promise.resolve 包一层，确保都是promise
-                Promise.resolvlete(promises[i]).then((value) => {
+                Promise.resolve(promises[i]).then((value) => {
                     processValue(i, value)
                 }, (err) => {
                     // 有一个失败则结束循环
