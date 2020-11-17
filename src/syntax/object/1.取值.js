@@ -26,6 +26,7 @@ class Test {
     set age(val) {
         console.log('age setter');
         this._age = val;
+        console.log('age setter end')
     }
 
     get() { // 不具名的 set get 不是访问器属性，不会自动调用
@@ -53,7 +54,7 @@ t.errCode = 500
 console.log('t4 = ', t.errCode)
 
 console.log('t5 = ', t.age)
-t.age = 18;
+t.age = 18; // 只会调用 setter age
 console.log('t6 = ', t.age)
 
 console.log('t keys = ',Object.keys(t)) // [ '200', 'name', '_age' ]
