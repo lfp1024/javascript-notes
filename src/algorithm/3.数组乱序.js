@@ -34,7 +34,7 @@ fisher-yates 算法
     const newArr = [];
     const len = arr.length;
     for (let j = 0; j < len; j++) {
-        newArr.push(arr.splice(Math.random() * arr.length, 1)[0]); // 两个数组有可能相同
+        newArr.push(arr.splice(Math.floor(Math.random() * arr.length), 1)[0]); // 两个数组有可能相同
     }
     console.log(newArr);
 })()
