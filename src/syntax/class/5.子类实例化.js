@@ -1,0 +1,31 @@
+'use strict';
+
+class Father {
+
+    #weight=100
+
+    constructor(name) {
+        this.name = name;
+    }
+
+    speak() {
+        console.log(this.name);
+    }
+}
+
+class Son extends Father {
+
+    eat() {
+        console.log('son eat', this                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          );
+        console.log('son constructor',this.constructor);
+    }
+
+}
+
+/**
+ * 如果子类没有显式构造函数，则实例化时会自动添加一个空的构造函数并调用 super()。
+ * 如果父类的构造函数需要传递参数，则此时实例化子类new son(arg)传入的参数会自动传递给父类，即 super(arg)
+ */
+const son1 = new Son('lfp'); 
+son1.eat();
+son1.speak();
