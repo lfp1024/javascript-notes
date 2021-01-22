@@ -1,0 +1,19 @@
+{
+  "name": "javascript-notes",
+  "version": "1.0.0",
+  "description": "javascript notes",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lfp1024/javascript-notes.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lfp1024/javascript-notes/issues"
+  },
+  "homepage": "https://github.com/lfp1024/javascript-notes#readme"
+}
