@@ -9,7 +9,7 @@ function test() {
     console.log('T = ', typeof T); // function
     const t = new T();
     console.log('t.eat = ', t.eat()); // 继承父类的方法
-    console.log('t.name = ', T.name); // 类名
+    console.log('t.name = ', T.name); // 类名 T
 }
 
 test();
