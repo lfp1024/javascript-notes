@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "jquery": "^3.5.1",
-    "zepto": "^1.2.0"
-  }
-}
