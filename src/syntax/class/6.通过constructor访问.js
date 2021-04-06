@@ -5,7 +5,7 @@ class CalledByConstructor {
     get sequelize() {
         console.log('1111111', this.constructor); // 此时 this指实例，实例中访问 constructor 会找到 CalledByConstructor 类
         console.log('2222222', this.constructor.sequelize); // ，而 CalledByConstructor 类添加了 sequelize 属性
-        return this.constructor.sequelize; // 实例只能通过 constructor 属性访问类的静态属性
+        return this.constructor.sequelize; // 【实例只能通过 constructor 属性访问类的静态属性】
 
         // console.log('3333333', super.eat()); // 实例关系，并不是继承关系，没有super
         // return super.sequelize; // super 指向 CalledByConstructor 的原型对象，而原型对象上没有 sequelize 属性

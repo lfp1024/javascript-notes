@@ -4,8 +4,6 @@ const pri = Symbol('pri');
 
 
 class A {
-
-
     constructor() {
         this.name = 'lfp'
         this.height = this.eat()
