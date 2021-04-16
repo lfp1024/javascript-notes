@@ -21,4 +21,7 @@
 
     const res = reload(arr)
     console.log("Res = ", res)
+
+    const res2 = arr.flat(2)
+    console.log('res2 = ', res2);
 })()
